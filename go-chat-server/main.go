@@ -15,15 +15,9 @@ var (
 )
 
 // 向所有客户端广播消息
-func broadcastMessage(msg string, sender net.Conn) {
+func broadcastMessage(senderName string, msg string, sender net.Conn) {
 	mutex.Lock()
 	defer mutex.Unlock()
-
-	senderName, ok := clients[sender]
-	if !ok {
-		fmt.Println("Sender not found in client list")
-		return
-	}
 
 	for client := range clients {
 		if client != sender {
@@ -52,23 +46,22 @@ func handleConnection(conn net.Conn) {
 	mutex.Unlock()
 
 	fmt.Printf("%s has joined the chat\n", name)
-	broadcastMessage("has joined the chat\n", conn)
+	broadcastMessage("has joined the chat\n", name, conn)
 
 	reader := bufio.NewReader(conn)
 	for {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
+			// 客户端断开连接
+			mutex.Lock()
+			delete(clients, conn)
+			fmt.Printf("%s has left the chat\n", name)
+			broadcastMessage("has left the chat\n", name, conn)
+			mutex.Unlock()
 			break
 		}
-		broadcastMessage(msg, conn)
+		broadcastMessage(name, msg, conn)
 	}
-
-	mutex.Lock()
-	fmt.Printf("%s has left the chat\n", name)
-	broadcastMessage("has left the chat\n", conn)
-	delete(clients, conn)
-	mutex.Unlock()
-	
 }
 
 func main() {
